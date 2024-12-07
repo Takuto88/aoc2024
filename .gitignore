@@ -1,0 +1,4 @@
+.idea/
+cmake*
+build/*
+puzzle_inputs/*.txt
