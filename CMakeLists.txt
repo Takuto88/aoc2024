@@ -16,10 +16,13 @@ add_library(libstring
 
 add_executable(aoc_2024 main.c src/day1/day1_1.c src/day1/day1_2.c
         src/day2/day2.h
-        src/day2/day2.c)
+        src/day2/day2.c
+        src/day3/day3.h
+        src/day3/day3.c)
 target_include_directories(aoc_2024 PRIVATE
         ${PROJECT_SOURCE_DIR}/src/day1
         ${PROJECT_SOURCE_DIR}/src/day2
+        ${PROJECT_SOURCE_DIR}/src/day3
         ${PROJECT_SOURCE_DIR}/src/libs
 )
 target_link_libraries(aoc_2024 liblists libreports libstring)
