@@ -2,10 +2,18 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define WINDOW_SIZE (4)
+#define WINDOW_END (WINDOW_SIZE - 1)
+
+typedef struct {
+    char* token;
+    size_t size;
+} token_t;
+
 void move_window(char* window) {
     char* beginning = &window[0];
     char* copy_from = &window[1];
-    size_t copy_size = sizeof(char) * 3;
+    size_t copy_size = sizeof(char) * WINDOW_END;
     memmove(beginning, copy_from, copy_size);
 }
 
@@ -15,7 +23,7 @@ int test_for_number(FILE* fp, char* window) {
     while(!feof(fp) && num_str_idx < 10) {
         num_str[num_str_idx] = (char) fgetc(fp);
         move_window(window);
-        window[3] = num_str[num_str_idx];
+        window[WINDOW_END] = num_str[num_str_idx];
 
         // Check if invalid chars are encountered in the first index
         if (num_str_idx == 0 && (num_str[num_str_idx] < '0' || num_str[num_str_idx] > '9')) {
@@ -25,7 +33,7 @@ int test_for_number(FILE* fp, char* window) {
         // Check if we hit a comma or a ) to denote the end of a number
         if(num_str_idx > 0 && (num_str[num_str_idx] == ',' || num_str[num_str_idx] == ')')) {
             num_str[num_str_idx] = 0;
-            return atoi((char *) num_str);
+            return atoi(num_str);
         }
 
         // Discard any other character
@@ -48,12 +56,16 @@ void solve_day3_1(const char* puzzle_input) {
 
     int result = 0;
     int index = 0; // Counts only up to the window size
-    char window[4];
-    char* delimiter = "mul(";
+    char window[WINDOW_SIZE];
 
     while (!feof(fp)) {
+        const token_t token_mul = {
+            .token = "mul(",
+            .size = 4,
+        };
+
         // Read up to 4 chars into a window
-        if (index < 4) {
+        if (index < WINDOW_SIZE) {
             window[index] = (char) fgetc(fp);
             index++;
             continue;
@@ -61,10 +73,10 @@ void solve_day3_1(const char* puzzle_input) {
 
         // Copy the last 3 chars from our window to the beginning to make it slide and append the char to the end
         move_window(window);
-        window[3] = (char) fgetc(fp);
+        window[WINDOW_END] = (char) fgetc(fp);
 
         // Check if our window contains "mul("
-        if(memcmp(window, delimiter, sizeof(char) * 4) != 0) {
+        if(memcmp(window, token_mul.token, sizeof(char) * token_mul.size) != 0) {
             continue;
         }
 
@@ -76,7 +88,7 @@ void solve_day3_1(const char* puzzle_input) {
         // We have a potential match - now we need to check if the next char is a first_number.
         int first_number = test_for_number(fp, window);
         // Check if we have a first_number AND if we have not encountered a ) yet
-        if(first_number == 0 || window[3] == ')') {
+        if(first_number == 0 || window[WINDOW_END] == ')') {
             continue;
         }
 
