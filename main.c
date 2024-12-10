@@ -4,6 +4,7 @@
 #include "day3.h"
 #include "day4.h"
 #include "day5.h"
+#include "day6.h"
 
 int main(void) {
     solve_day1_1("../puzzle_inputs/day1_input.txt");
@@ -16,4 +17,5 @@ int main(void) {
     solve_day4_2("../puzzle_inputs/day4_input.txt");
     solve_day5("../puzzle_inputs/day5_input.txt", 1);
     solve_day5("../puzzle_inputs/day5_input.txt", 2);
+    solve_day_6("../puzzle_inputs/day6_input.txt");
 }
