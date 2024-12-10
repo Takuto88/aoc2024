@@ -6,7 +6,8 @@
 #include <string.h>
 
 
-const char *needle = "XMAS";
+const char *needle_part_1 = "XMAS";
+const char *needle_part_2 = "MAS";
 
 void destroy_puzzle(puzzle_t *puzzle) {
     if (puzzle == NULL) {
@@ -280,13 +281,69 @@ void solve_day4_1(const char *puzzle_input) {
             for (int f_ptr_idx = 0; f_ptr_idx < 8; f_ptr_idx++) {
                 char* str = get_string[f_ptr_idx](puzzle, x, y, size);
 
-                if (strcmp(str, needle) == 0) {
+                if (strcmp(str, needle_part_1) == 0) {
                     found++;
                     found_using[f_ptr_idx]++;
                 }
 
                 free(str);
             }
+        }
+    }
+
+    destroy_puzzle(puzzle);
+    fclose(fp);
+
+    fprintf(stdout, "Day 4_1: Puzzle contains XMAS %d times\n", found);
+}
+
+bool needle_part2_matches_forward_or_reverse(char* str) {
+    if (strcmp(str, needle_part_2) == 0) {
+        return true;
+    }
+
+    // Reverse the string
+    size_t str_len = strlen(str);
+    char* reversed = malloc(sizeof(char) * str_len);
+    for (size_t i = 0; i < str_len; i++) {
+        reversed[i] = str[str_len - i - 1];
+    }
+
+    if (strcmp(reversed, needle_part_2) == 0) {
+        free(reversed);
+        return true;
+    }
+
+    free(reversed);
+    return false;
+}
+
+void solve_day4_2(const char *puzzle_input) {
+    FILE *fp = fopen(puzzle_input, "r");
+    if (fp == NULL) {
+        fprintf(stderr, "Could not load puzzle input file: %s\n", puzzle_input);
+        return;
+    }
+
+    puzzle_t *puzzle = load_puzzle(fp);
+
+    int found = 0;
+    const int size = 3;
+
+    for (int x = 0; x < puzzle->num_lines; x++) {
+        for (int y = 0; y < puzzle->line_length; y++) {
+            char *xpart = get_diag_bottom_right(puzzle, x, y, size);
+            if (!needle_part2_matches_forward_or_reverse(xpart)) {
+                free(xpart);
+                continue;
+            }
+            free(xpart);
+
+            xpart = get_diag_top_right(puzzle, x + 2, y, size);
+            if (needle_part2_matches_forward_or_reverse(xpart)) {
+                found++;
+            }
+            free(xpart);
         }
     }
 

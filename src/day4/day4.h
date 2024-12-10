@@ -9,4 +9,5 @@ typedef struct {
 } puzzle_t;
 
 void solve_day4_1(const char* puzzle_input);
+void solve_day4_2(const char* puzzle_input);
 #endif //DAY4_H

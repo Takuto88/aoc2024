@@ -12,4 +12,5 @@ int main(void) {
     solve_day3("../puzzle_inputs/day3_input.txt", 1);
     solve_day3("../puzzle_inputs/day3_input.txt", 2);
     solve_day4_1("../puzzle_inputs/day4_input.txt");
+    solve_day4_2("../puzzle_inputs/day4_input.txt");
 }
