@@ -19,8 +19,8 @@ typedef struct {
   page_update_t *page_update;
   size_t rules_size;
   bool valid_set;
+  bool reordered;
 } page_update_and_rules_t;
 
-void solve_day5_1(const char* puzzle_input);
-
+void solve_day5(const char* puzzle_input, const int part);
 #endif //DAY5_H

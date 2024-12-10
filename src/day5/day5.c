@@ -203,13 +203,13 @@ page_update_t **read_page_updates(FILE *fp, size_t *returned_size) {
     return updates;
 }
 
-bool is_valid_update_set(const page_update_and_rules_t *update_rule_set) {
+bool is_valid_update_set(page_update_and_rules_t *update_rule_set, const bool reorder_invalid) {
     if (update_rule_set == NULL) {
         return false;
     }
 
     for (size_t i = 0; i < update_rule_set->rules_size; i++) {
-        const ordering_rule_t *current_rule = update_rule_set->rules[i];
+        ordering_rule_t *current_rule = update_rule_set->rules[i];
 
         size_t low_idx = 0;
         size_t high_idx = 0;
@@ -225,16 +225,29 @@ bool is_valid_update_set(const page_update_and_rules_t *update_rule_set) {
             }
         }
 
-        if (low_idx > high_idx) {
+        if (low_idx > high_idx && !reorder_invalid) {
             return false;
         }
+
+        if (low_idx > high_idx && reorder_invalid) {
+            const long tmp = update_rule_set->page_update->updates[high_idx];
+            update_rule_set->page_update->updates[high_idx] = update_rule_set->page_update->updates[low_idx];
+            update_rule_set->page_update->updates[low_idx] = tmp;
+            update_rule_set->page_update->middle = update_rule_set->page_update->updates[update_rule_set->page_update->updates_size / 2];
+            update_rule_set->reordered = true;
+
+            // Reset rule counter to re-iterate. Minus one because it will be set to 0 on loop finish.
+            i = -1;
+        }
+
     }
 
     return true;
 }
 
+
 page_update_and_rules_t *find_rules_for_page_update(ordering_rule_t **ordering_rules, size_t input_size,
-                                                page_update_t *page_update) {
+    page_update_t *page_update, const bool reorder_invalid) {
     if (input_size == 0 || ordering_rules == NULL || page_update == NULL) {
         return NULL;
     }
@@ -277,7 +290,7 @@ page_update_and_rules_t *find_rules_for_page_update(ordering_rule_t **ordering_r
     result->page_update = page_update;
     result->rules = matching_rules;
     result->rules_size = output_idx;
-    result->valid_set = is_valid_update_set(result);
+    result->valid_set = is_valid_update_set(result, reorder_invalid);
 
     return result;
 }
@@ -301,7 +314,7 @@ void print_page_update_rules(const page_update_and_rules_t *rules) {
         printf("(%lu|%lu),", rules->rules[i]->low, rules->rules[i]->high);
     }
     const char *valid = rules->valid_set ? "YES" : "NO";
-    printf("Valid: %s\n", valid);
+    printf(" Valid: %s\n", valid);
 }
 
 void destroy_page_update_and_rules(page_update_and_rules_t *rules) {
@@ -321,33 +334,40 @@ void destroy_page_update_and_rules(page_update_and_rules_t *rules) {
     free(rules);
 }
 
-void solve_day5_1(const char *puzzle_input) {
+void solve_day5(const char *puzzle_input, const int part) {
     FILE *fp = fopen(puzzle_input, "r");
     size_t rules_size = 0;
     ordering_rule_t **rules = read_rules(fp, &rules_size);
 
     size_t updates_size = 0;
     page_update_t **updates = read_page_updates(fp, &updates_size);
+    const bool reorder_invalid = part == 2;
 
     long pages_sum = 0;
+
     for (size_t i = 0; i < updates_size; i++) {
         page_update_t *current_update = updates[i];
 
-        page_update_and_rules_t *matching_rules = find_rules_for_page_update(rules, rules_size, current_update);
+        page_update_and_rules_t *matching_rules = find_rules_for_page_update(rules, rules_size, current_update, reorder_invalid);
         if (matching_rules == NULL) {
             continue;
         }
 
         // print_page_update_rules(matching_rules);
         // ReSharper disable once CppDFADeletedPointer
-        if (matching_rules->valid_set) {
+        if (matching_rules->valid_set && !reorder_invalid) {
+            pages_sum += matching_rules->page_update->middle;
+        }
+
+        // ReSharper disable once CppDFADeletedPointer
+        if (matching_rules->reordered && reorder_invalid) {
             pages_sum += matching_rules->page_update->middle;
         }
 
         destroy_page_update_and_rules(matching_rules);
     }
 
-    printf("Day 5_1: Sum of all valid middle pages is: %lu\n", pages_sum);
+    printf("Day 5_%d: Sum of all valid middle pages is: %lu.\n", part, pages_sum);
     fclose(fp);
     destroy_rules(rules, rules_size);
     destroy_page_updates(updates, updates_size);
