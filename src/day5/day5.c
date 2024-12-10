@@ -310,11 +310,14 @@ void destroy_page_update_and_rules(page_update_and_rules_t *rules) {
     }
 
     // This is a new copy of rule pointers
+    // ReSharper disable once CppDFADeletedPointer
     if (rules->rules != NULL) {
+        // ReSharper disable once CppDFADeletedPointer
         free(rules->rules);
     }
 
     // Page updates are not cleared as their ownership is elsewhere
+    // ReSharper disable once CppDFADeletedPointer
     free(rules);
 }
 
