@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include "day5.h"
 
-
 ordering_rule_t *parse_ordering_rule(const char *line) {
     char *line_copy = strdup(line);
     if (line_copy == NULL) {
@@ -204,15 +203,47 @@ page_update_t **read_page_updates(FILE *fp, size_t *returned_size) {
     return updates;
 }
 
-ordering_rule_t **find_rules_for_page_update(ordering_rule_t **ordering_rules, size_t input_size,
-                                             size_t *output_size, const page_update_t *page_update) {
+bool is_valid_update_set(const page_update_and_rules_t *update_rule_set) {
+    if (update_rule_set == NULL) {
+        return false;
+    }
+
+    for (size_t i = 0; i < update_rule_set->rules_size; i++) {
+        const ordering_rule_t *current_rule = update_rule_set->rules[i];
+
+        size_t low_idx = 0;
+        size_t high_idx = 0;
+        for (size_t j = 0; j < update_rule_set->page_update->updates_size; j++) {
+            const long current_page_num = update_rule_set->page_update->updates[j];
+            if (current_rule->low == current_page_num) {
+                low_idx = j;
+                continue;
+            }
+
+            if (current_rule->high == current_page_num) {
+                high_idx = j;
+            }
+        }
+
+        if (low_idx > high_idx) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+page_update_and_rules_t *find_rules_for_page_update(ordering_rule_t **ordering_rules, size_t input_size,
+                                                page_update_t *page_update) {
     if (input_size == 0 || ordering_rules == NULL || page_update == NULL) {
-        *output_size = 0;
         return NULL;
     }
 
     size_t output_idx = 0;
-    ordering_rule_t **matching_rules = calloc(input_size, sizeof(ordering_rule_t));
+    ordering_rule_t **matching_rules = malloc(sizeof(ordering_rule_t) * input_size);
+    if (matching_rules == NULL) {
+        return NULL;
+    }
 
     for (size_t i = 0; i < input_size; i++) {
         ordering_rule_t *current_rule = ordering_rules[i];
@@ -237,16 +268,54 @@ ordering_rule_t **find_rules_for_page_update(ordering_rule_t **ordering_rules, s
         }
     }
 
-    *output_size = output_idx;
-    ordering_rule_t **output_buffer = realloc(matching_rules, sizeof(ordering_rule_t) * output_idx);
-    if (output_buffer == NULL) {
-        *output_size = 0;
+    page_update_and_rules_t *result = calloc(1, sizeof(page_update_and_rules_t));
+    if (result == NULL) {
         free(matching_rules);
         return NULL;
     }
 
-    matching_rules = output_buffer;
-    return matching_rules;
+    result->page_update = page_update;
+    result->rules = matching_rules;
+    result->rules_size = output_idx;
+    result->valid_set = is_valid_update_set(result);
+
+    return result;
+}
+
+void print_page_update(const page_update_t *page_update) {
+    printf("Page update: ");
+    for (size_t i = 0; i < page_update->updates_size; i++) {
+        printf("%lu, ", page_update->updates[i]);
+    }
+    printf("Middle: %lu", page_update->middle);
+}
+
+void print_page_update_rules(const page_update_and_rules_t *rules) {
+    if (rules == NULL) {
+        return;
+    }
+
+    print_page_update(rules->page_update);
+    printf(" Matched Rules: ");
+    for (size_t i = 0; i < rules->rules_size; i++) {
+        printf("(%lu|%lu),", rules->rules[i]->low, rules->rules[i]->high);
+    }
+    const char *valid = rules->valid_set ? "YES" : "NO";
+    printf("Valid: %s\n", valid);
+}
+
+void destroy_page_update_and_rules(page_update_and_rules_t *rules) {
+    if (rules == NULL) {
+        return;
+    }
+
+    // This is a new copy of rule pointers
+    if (rules->rules != NULL) {
+        free(rules->rules);
+    }
+
+    // Page updates are not cleared as their ownership is elsewhere
+    free(rules);
 }
 
 void solve_day5_1(const char *puzzle_input) {
@@ -254,33 +323,28 @@ void solve_day5_1(const char *puzzle_input) {
     size_t rules_size = 0;
     ordering_rule_t **rules = read_rules(fp, &rules_size);
 
-    for (size_t i = 0; i < rules_size; i++) {
-        printf("Rule %zu: %ld | %ld\n", i, rules[i]->low, rules[i]->high);
-    }
-
     size_t updates_size = 0;
     page_update_t **updates = read_page_updates(fp, &updates_size);
 
+    long pages_sum = 0;
     for (size_t i = 0; i < updates_size; i++) {
-        const page_update_t *current_update = updates[i];
-        size_t matching_rules_size = 0;
+        page_update_t *current_update = updates[i];
 
-        ordering_rule_t **matching_rules = find_rules_for_page_update(rules, rules_size, &matching_rules_size, current_update);
-
-        printf("Update %zu: ", i);
-        for (size_t j = 0; j < current_update->updates_size; j++) {
-            printf("%ld, ", current_update->updates[j]);
+        page_update_and_rules_t *matching_rules = find_rules_for_page_update(rules, rules_size, current_update);
+        if (matching_rules == NULL) {
+            continue;
         }
-        printf("Middle: %ld, ", current_update->middle);
 
-        printf("Matched rules: ");
-        for (size_t j = 0; j < matching_rules_size; j++) {
-            printf("(%ld|%ld),", matching_rules[j]->low, matching_rules[j]->high);
+        // print_page_update_rules(matching_rules);
+        // ReSharper disable once CppDFADeletedPointer
+        if (matching_rules->valid_set) {
+            pages_sum += matching_rules->page_update->middle;
         }
-        printf("\n");
-        free(matching_rules);
+
+        destroy_page_update_and_rules(matching_rules);
     }
 
+    printf("Day 5_1: Sum of all valid middle pages is: %lu\n", pages_sum);
     fclose(fp);
     destroy_rules(rules, rules_size);
     destroy_page_updates(updates, updates_size);
