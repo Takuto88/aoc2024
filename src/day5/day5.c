@@ -204,6 +204,51 @@ page_update_t **read_page_updates(FILE *fp, size_t *returned_size) {
     return updates;
 }
 
+ordering_rule_t **find_rules_for_page_update(ordering_rule_t **ordering_rules, size_t input_size,
+                                             size_t *output_size, const page_update_t *page_update) {
+    if (input_size == 0 || ordering_rules == NULL || page_update == NULL) {
+        *output_size = 0;
+        return NULL;
+    }
+
+    size_t output_idx = 0;
+    ordering_rule_t **matching_rules = calloc(input_size, sizeof(ordering_rule_t));
+
+    for (size_t i = 0; i < input_size; i++) {
+        ordering_rule_t *current_rule = ordering_rules[i];
+
+        long matched_low = 0;
+        long matched_high = 0;
+        for (size_t y = 0; y < page_update->updates_size; y++) {
+            const long current_update = page_update->updates[y];
+            if (current_update == current_rule->low) {
+                matched_low = current_rule->low;
+                continue;
+            }
+
+            if (current_update == current_rule->high) {
+                matched_high = current_rule->high;
+            }
+        }
+
+        if (matched_low && matched_high) {
+            matching_rules[output_idx] = current_rule;
+            output_idx++;
+        }
+    }
+
+    *output_size = output_idx;
+    ordering_rule_t **output_buffer = realloc(matching_rules, sizeof(ordering_rule_t) * output_idx);
+    if (output_buffer == NULL) {
+        *output_size = 0;
+        free(matching_rules);
+        return NULL;
+    }
+
+    matching_rules = output_buffer;
+    return matching_rules;
+}
+
 void solve_day5_1(const char *puzzle_input) {
     FILE *fp = fopen(puzzle_input, "r");
     size_t rules_size = 0;
@@ -217,11 +262,23 @@ void solve_day5_1(const char *puzzle_input) {
     page_update_t **updates = read_page_updates(fp, &updates_size);
 
     for (size_t i = 0; i < updates_size; i++) {
+        const page_update_t *current_update = updates[i];
+        size_t matching_rules_size = 0;
+
+        ordering_rule_t **matching_rules = find_rules_for_page_update(rules, rules_size, &matching_rules_size, current_update);
+
         printf("Update %zu: ", i);
-        for (size_t j = 0; j < updates[i]->updates_size; j++) {
-            printf("%ld, ", updates[i]->updates[j]);
+        for (size_t j = 0; j < current_update->updates_size; j++) {
+            printf("%ld, ", current_update->updates[j]);
         }
-        printf("Middle: %ld\n", updates[i]->middle);
+        printf("Middle: %ld, ", current_update->middle);
+
+        printf("Matched rules: ");
+        for (size_t j = 0; j < matching_rules_size; j++) {
+            printf("(%ld|%ld),", matching_rules[j]->low, matching_rules[j]->high);
+        }
+        printf("\n");
+        free(matching_rules);
     }
 
     fclose(fp);
