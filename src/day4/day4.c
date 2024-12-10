@@ -350,5 +350,5 @@ void solve_day4_2(const char *puzzle_input) {
     destroy_puzzle(puzzle);
     fclose(fp);
 
-    fprintf(stdout, "Day 4_1: Puzzle contains XMAS %d times\n", found);
+    fprintf(stdout, "Day 4_2: Puzzle contains XMAS %d times\n", found);
 }
