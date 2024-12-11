@@ -15,6 +15,7 @@ typedef struct {
     uint16_t y_pos;
     guard_direction_t direction;
     bool has_left;
+    bool is_stuck_in_loop;
 } guard_t;
 
 typedef struct {
@@ -28,5 +29,6 @@ typedef struct {
     guard_t *guard;
 } world_t;
 
-void solve_day_6(const char* puzzle_input);
+void solve_day_6_1(const char* puzzle_input);
+void solve_day_6_2(const char* puzzle_input);
 #endif //DAY6_H

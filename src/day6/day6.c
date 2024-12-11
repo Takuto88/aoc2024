@@ -20,6 +20,7 @@ guard_t *find_guard(const char *line, const size_t line_len) {
             guard->y_pos = i;
             guard->direction = LEFT;
             guard->has_left = false;
+            guard->is_stuck_in_loop = false;
             return guard;
         }
 
@@ -28,6 +29,7 @@ guard_t *find_guard(const char *line, const size_t line_len) {
             guard->y_pos = i;
             guard->direction = RIGHT;
             guard->has_left = false;
+            guard->is_stuck_in_loop = false;
             return guard;
         }
 
@@ -36,6 +38,7 @@ guard_t *find_guard(const char *line, const size_t line_len) {
             guard->y_pos = i;
             guard->direction = UP;
             guard->has_left = false;
+            guard->is_stuck_in_loop = false;
             return guard;
         }
 
@@ -44,6 +47,7 @@ guard_t *find_guard(const char *line, const size_t line_len) {
             guard->y_pos = i;
             guard->direction = DOWN;
             guard->has_left = false;
+            guard->is_stuck_in_loop = false;
             return guard;
         }
     }
@@ -128,6 +132,43 @@ world_t *load_world(const char *puzzle_input) {
     return world;
 }
 
+world_t *copy_world(const world_t *world) {
+    world_t *copy = calloc(1, sizeof(world_t));
+    if (copy == NULL) {
+        return NULL;
+    }
+
+    copy->guard = calloc(1, sizeof(guard_t));
+    if (copy->guard == NULL) {
+        free(copy);
+        return NULL;
+    }
+    memcpy(copy->guard, world->guard, sizeof(guard_t));
+
+    copy->map = calloc(1, sizeof(map_t));
+    if (copy->map == NULL) {
+        free(copy->guard);
+        free(copy);
+        return NULL;
+    }
+
+    memcpy(copy->map, world->map, sizeof(map_t));
+    copy->map->raw_map = calloc(world->map->max_x, sizeof(char*));
+
+    if (copy->map->raw_map == NULL) {
+        free(copy->guard);
+        free(copy->map);
+        free(copy);
+        return NULL;
+    }
+
+    for (uint16_t x = 0; x < world->map->max_x; x++) {
+        copy->map->raw_map[x] = strdup(world->map->raw_map[x]);
+    }
+
+    return copy;
+}
+
 void destroy_world(world_t *world) {
     if (world == NULL) {
         return;
@@ -148,7 +189,7 @@ void destroy_world(world_t *world) {
     free(world);
 }
 
-void debug_dump_map(map_t *map) {
+void debug_dump_map(const map_t *map) {
     for (uint16_t x = 0; x < map->max_x; x++) {
         for (uint16_t y = 0; y < map->max_y; y++) {
             printf("%c", map->raw_map[x][y]);
@@ -159,7 +200,7 @@ void debug_dump_map(map_t *map) {
     printf("\n");
 }
 
-char get_direction_char(const guard_direction_t direction) {
+char get_guard_render_char(const guard_direction_t direction) {
     switch (direction) {
         case UP:
             return '^';
@@ -174,7 +215,7 @@ char get_direction_char(const guard_direction_t direction) {
     }
 }
 
-void tick_world(const world_t *world) {
+void tick_world(const world_t *world, int ***obstacle_hit_idx) {
     // Mark current field as visited
     world->map->raw_map[world->guard->x_pos][world->guard->y_pos] = GUARD_VISITED;
 
@@ -204,35 +245,88 @@ void tick_world(const world_t *world) {
         return;
     }
 
+    const char next_field = world->map->raw_map[next_guard_x][next_guard_y];
+
+    // Loop detection: Have we hit this obstacle before from the same direction?
+    if (obstacle_hit_idx != NULL && next_field == OBSTACLE) {
+        if (obstacle_hit_idx[next_guard_x][next_guard_y][world->guard->direction]) {
+            world->guard->is_stuck_in_loop = true;
+            return;
+        }
+
+        obstacle_hit_idx[next_guard_x][next_guard_y][world->guard->direction] = true;
+    }
+
     // Check if the guard hit an obstacle and must turn
-    if (world->map->raw_map[next_guard_x][next_guard_y] == OBSTACLE) {
+    if (next_field == OBSTACLE) {
         if (world->guard->direction == LEFT ) {
             world->guard->direction = UP;
         } else {
             world->guard->direction++; // Numeric enums are smart :)
         }
+
         return;
     }
 
     // No obstacle hit - Move the guard
     world->guard->x_pos = next_guard_x;
     world->guard->y_pos = next_guard_y;
-    world->map->raw_map[next_guard_x][next_guard_y] = get_direction_char(world->guard->direction);
+    world->map->raw_map[next_guard_x][next_guard_y] = get_guard_render_char(world->guard->direction);
 }
 
-void solve_day_6(const char *puzzle_input) {
+int ***create_obstacle_hit_index(const map_t *map) {
+    int ***obstacle_hit_idx = calloc(map->max_x, sizeof(int**));
+    if (obstacle_hit_idx == NULL) {
+        return NULL;
+    }
+
+    for (uint16_t i = 0; i < map->max_x; i++) {
+        obstacle_hit_idx[i] = calloc(map->max_y, sizeof(int*));
+        if (obstacle_hit_idx[i] == NULL) {
+            for (int j = i - 1; j >= 0; j--) {
+                free(obstacle_hit_idx[j]);
+            }
+            free(obstacle_hit_idx);
+            return NULL;
+        }
+        for (uint16_t j = 0; j < map->max_y; j++) {
+            obstacle_hit_idx[i][j] = calloc(4, sizeof(int)); // Assuming 4 directions
+            if (obstacle_hit_idx[i][j] == NULL) {
+                for (int k = j - 1; k >= 0; k--) {
+                    free(obstacle_hit_idx[i][k]);
+                }
+                for (int k = i - 1; k >= 0; k--) {
+                    free(obstacle_hit_idx[k]);
+                }
+                free(obstacle_hit_idx);
+                return NULL;
+            }
+        }
+    }
+
+    return obstacle_hit_idx;
+}
+
+void destroy_obstacle_hit_index(int ***obstacle_hit_idx, const map_t *map) {
+    if (obstacle_hit_idx == NULL) {
+        return;
+    }
+
+    for (uint16_t i = 0; i < map->max_x; i++) {
+        for (uint16_t j = 0; j < map->max_y; j++) {
+            free(obstacle_hit_idx[i][j]);
+        }
+        free(obstacle_hit_idx[i]);
+    }
+
+    free(obstacle_hit_idx);
+}
+
+void solve_day_6_1(const char *puzzle_input) {
     world_t *world = load_world(puzzle_input);
 
-    printf(
-        "Loaded world! MAX_X: %d, MAX_Y: %d, GUARD_POS_X: %d, GUARD_POS_Y: %d, GUARD_DIR: %c\n",
-        world->map->max_x,
-        world->map->max_y,
-        world->guard->x_pos,
-        world->guard->y_pos,
-        get_direction_char(world->guard->direction));
-
     while (world->guard->has_left == false) {
-        tick_world(world);
+        tick_world(world, NULL);
     }
 
     int distinct_fields_visited = 0;
@@ -244,6 +338,47 @@ void solve_day_6(const char *puzzle_input) {
         }
     }
 
-    printf("Guard has left and has visited %d distinct fields!\n", distinct_fields_visited);
+    printf("Day 6_1: Guard has left and has visited %d distinct fields!\n", distinct_fields_visited);
     destroy_world(world);
+}
+
+void solve_day_6_2(const char *puzzle_input) {
+    world_t *world_without_obstacles = load_world(puzzle_input);
+    world_t *initial_world_state = copy_world(world_without_obstacles);
+
+    // Let the guard visit everything
+    while (world_without_obstacles->guard->has_left == false) {
+        tick_world(world_without_obstacles, NULL);
+    }
+
+    // Only where he visited: brute force place obstacles
+    int possible_obstacle_positions = 0;
+    for (uint16_t x = 0; x < world_without_obstacles->map->max_x; x++) {
+        for (uint16_t y = 0; y < world_without_obstacles->map->max_y; y++) {
+            if (world_without_obstacles->map->raw_map[x][y] == GUARD_VISITED) {
+                world_t *fresh_world = copy_world(initial_world_state);
+                if (fresh_world == NULL) {
+                    fprintf(stderr, "World copy failed! Out of memory?\n");
+                    abort();
+                }
+                fresh_world->map->raw_map[x][y] = OBSTACLE;
+
+                int ***obstacle_hit_idx = create_obstacle_hit_index(fresh_world->map);
+                while (!fresh_world->guard->has_left && !fresh_world->guard->is_stuck_in_loop) {
+                    tick_world(fresh_world, obstacle_hit_idx);
+                }
+
+                if (fresh_world->guard->is_stuck_in_loop) {
+                    possible_obstacle_positions++;
+                }
+
+                destroy_obstacle_hit_index(obstacle_hit_idx, fresh_world->map);
+                destroy_world(fresh_world);
+            }
+        }
+    }
+
+    destroy_world(world_without_obstacles);
+    destroy_world(initial_world_state);
+    printf("Day 6_2: There are %d possible obstacle locations\n", possible_obstacle_positions);
 }
