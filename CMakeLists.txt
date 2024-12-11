@@ -24,7 +24,9 @@ add_executable(aoc_2024 main.c src/day1/day1_1.c src/day1/day1_2.c
         src/day5/day5.h
         src/day5/day5.c
         src/day6/day6.h
-        src/day6/day6.c)
+        src/day6/day6.c
+        src/day7/day7.c
+        src/day7/day7.h)
 target_include_directories(aoc_2024 PRIVATE
         ${PROJECT_SOURCE_DIR}/src/day1
         ${PROJECT_SOURCE_DIR}/src/day2
@@ -32,6 +34,7 @@ target_include_directories(aoc_2024 PRIVATE
         ${PROJECT_SOURCE_DIR}/src/day4
         ${PROJECT_SOURCE_DIR}/src/day5
         ${PROJECT_SOURCE_DIR}/src/day6
+        ${PROJECT_SOURCE_DIR}/src/day7
         ${PROJECT_SOURCE_DIR}/src/libs
 )
 target_link_libraries(aoc_2024 liblists libreports libstring)
