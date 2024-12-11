@@ -58,7 +58,7 @@ calibration_t **load_calibrations(const char *puzzle_input, size_t *result_size)
             fprintf(stderr, "Warning: Input may be malformed: %s\n", line_buffer);
         }
 
-        calibration->operands_size = count_char(line_buffer, ' ');
+        calibration->operands_size = str_count_char(line_buffer, ' ');
         calibration->operands = calloc(calibration->operands_size, sizeof(long));
         if (calibration->operands == NULL) {
             for (size_t i = calibrations_size; i > 0; i--) {
